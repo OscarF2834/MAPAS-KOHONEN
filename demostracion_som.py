@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-D E M O S T R A C I Ó N   D E   M A P A S   A U T O - O R G A N I Z A D O S
-                     de Kohonen — SOM (Kohonen, 1982)
+D E M O S T R A C I Ó N   I N T E R A C T I V A  ·  M A P A S  A U T O - O R G A N I Z A D O S
+                      de Kohonen — SOM (Kohonen, 1982)
 
-Demostración visual para la presentación
 "Mapas Auto-Organizados de Kohonen (SOM): Redes que Ordenan Solas"
 (GRUPO 10 · Octubre 26, 2026)
 
@@ -13,21 +12,14 @@ La BMU, el vecindario gaussiano, la decaída de la tasa de aprendizaje
 y del radio están escritas aquí para que cada paso del algoritmo sea
 visible y comprensible.
 
-PASOS DE LA DEMO (cada fase abre una ventana; ciérrala y pulsa ENTER
-en la terminal para pasar a la siguiente):
-
-  [1] ¿Qué es un SOM?              → animación: el mapa "se ordena solo" con datos de colores
-  [2] De un dato al mapa:          → los 4 movimientos paso a paso:
-      cuatro movimientos            ENTRADA · COMPETENCIA · COOPERACIÓN · CONVERGENCIA
-  [3] Muchas dimensiones,          → reducción de dimensión:
-      un mapa legible               "cerca en el mapa ≈ cerca en los datos"
-  [4] Caso real 01 · MEDIOS        → "noticias" que se agrupan solas por afinidad temática
-  [5] Caso real 02 · SEGURIDAD     → anomalías que destacan antes de tener nombre
-  [6] ¿Por qué elegir un SOM?      → sin etiquetas · visual · flexible · robusto
-  [7] El mapa también exige        → tamaño del mapa, interpretación,
-      criterio                        escalabilidad, heterogeneidad
-  [8] El SOM del futuro            → mapa "vivo" que se adapta a un flujo en tiempo real
-  [9] Cierre                       → ORDENA · REVELA · INVITA
+INTERACTIVIDAD (¡la demo es tuya!):
+  ▸ Menú inicial con los 9 capítulos + «reproducir todo».
+  ▸ ⟲ botón «repetir» (o tecla R) para volver a entrenar en vivo.
+  ▸ Clic en los gráficos para vincular punto ↔ casilla del mapa.
+  ▸ Pasa el ratón sobre el mapa y ver los documentos de cada neurona.
+  ▸ Slider para ajustar el umbral de alarma en tiempo real.
+  ▸ Botón ⏸ pausa en el mapa vivo.
+  ▸ Zoom/pan con la barra de herramientas, y R para repetir animaciones.
 
 Ejecutar:    python3 demostracion_som.py
 """
@@ -35,10 +27,29 @@ Ejecutar:    python3 demostracion_som.py
 import math
 import numpy as np
 import matplotlib
-matplotlib.use("GTK3Agg")          # backend gráfico disponible en este equipo
+
+
+def _elegir_backend():
+    """Elige el primer backend gráfico disponible (y cae a Agg si no hay)."""
+    posibles = ("GTK3Agg", "TkAgg", "QtAgg", "MacOSX", "Agg")
+    for b in posibles:
+        try:
+            matplotlib.use(b)
+            return b
+        except Exception:
+            continue
+    matplotlib.use("Agg")
+    return "Agg"
+
+
+BACKEND = _elegir_backend()
+GUI_OK = BACKEND != "Agg"
+
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import FancyBboxPatch, Circle, FancyArrowPatch, Rectangle
+from matplotlib.widgets import Button, Slider
+from matplotlib.colors import LinearSegmentedColormap
 
 plt.rcParams["font.family"] = "DejaVu Sans"
 
@@ -60,7 +71,6 @@ PALETA_TOP = [TURQUESA, LILA, CORAL, DORADO, VERDE,
               "#5bc0de", "#ff9f68", "#8f7de8"]
 
 # paleta "matriz-U": oscuro (zona homogénea) → claro/peligro (frontera)
-from matplotlib.colors import LinearSegmentedColormap
 UM_CMAP = LinearSegmentedColormap.from_list(
     "um", ["#101a30", "#1e4d5e", "#2ea98f", "#d8b64a", "#f2f1e8"])
 
@@ -154,24 +164,29 @@ class SOM:
 def aviso(t):
     print("\n  \033[96m▸\033[0m " + t)
 
-def pausa_enter(sugerencia="cierra la ventana y descubro la siguiente fase"):
-    print("    \033[90m► " + sugerencia +
-          ", luego pulsa ENTER aquí…\033[0m ", end="")
-    input("")
-    print()
 
 def figura_presentation(w=15.5, h=9.0):
-    """Figura con el marco y el fondo de la presentación."""
+    """Figura con el marco y el fondo de geofraddient de la presentación."""
     fig = plt.figure(figsize=(w, h), facecolor=AZUL)
     ax0 = fig.add_axes([0, 0, 1, 1], zorder=-20)
     ax0.set_xlim(0, 1); ax0.set_ylim(0, 1); ax0.axis("off")
+
+    # fondo con degradado vertical (más bonito que un plano)
+    grad = np.zeros((256, 1, 3))
+    arriba = np.array([0x0e/255, 0x16/255, 0x28/255])
+    abajo  = np.array([0x1d/255, 0x2f/255, 0x52/255])
+    for k in range(3):
+        grad[:, 0, k] = np.linspace(arriba[k], abajo[k], 256)
+    ax0.imshow(grad, extent=(0, 1, 0, 1), aspect="auto", zorder=-21)
+
     ax0.add_patch(FancyBboxPatch(
         (0.010, 0.010), 0.980, 0.980,
         boxstyle="round,pad=0.006,rounding_size=0.018",
-        fc=AZUL_2, ec=DORADO, lw=2.4, alpha=.30, zorder=-20))
-    ax0.text(.985, .022, "SOM · Kohonen 1982", fontsize=8.5, color=GRIS,
-             ha="right", va="bottom", zorder=-20)
+        fc="none", ec=DORADO, lw=2.4, alpha=.40, zorder=-20))
+    ax0.text(.985, .022, "SOM · Kohonen 1982 · KOHOSEN", fontsize=8.5,
+             color=GRIS, ha="right", va="bottom", zorder=-20)
     return fig, ax0
+
 
 def titulo_slide(ax0, es, sub=None):
     ax0.text(.046, .955, es, fontsize=27, color=CREMA,
@@ -179,14 +194,13 @@ def titulo_slide(ax0, es, sub=None):
     if sub:
         ax0.text(.046, .905, sub, fontsize=13, color=DORADO, va="top")
 
-def chip(ax, x, y, tx, color, fs=11.5, w=.20, h=.078, lw=2.0, border=False):
-    """Cajita 'chip' con borde redondeado tipo presentación."""
-    ax.add_patch(FancyBboxPatch(
-        (x, y), w, h,
-        boxstyle="round,pad=0.010,rounding_size=0.022",
-        fc=(AZUL if border else "none"), ec=color, lw=lw))
-    ax.text(x + w / 2, y + h / 2, tx, fontsize=fs, color=CREMA,
-            ha="center", va="center", fontweight="bold")
+
+def titulo_ventana(fig, texto):
+    try:
+        fig.canvas.manager.set_window_title(texto)
+    except Exception:
+        pass
+
 
 def tarjeta(ax, x, y, w, h, color):
     ax.add_patch(FancyBboxPatch(
@@ -194,10 +208,25 @@ def tarjeta(ax, x, y, w, h, color):
         boxstyle="round,pad=0.010,rounding_size=0.022",
         fc=AZUL, ec=color, lw=2.2))
 
+
+def boton_h(fig, rect, texto, color, calb, fs=10.5):
+    """Botón matplotlib.widgets al estilo de la presentación."""
+    bax = fig.add_axes(rect)
+    bax.set_facecolor(AZUL_2)
+    b = Button(bax, texto, color=AZUL_2, hovercolor="#31497c")
+    b.label.set_color(CREMA)
+    b.label.set_fontsize(fs)
+    for sp in bax.spines.values():
+        sp.set_color(color); sp.set_linewidth(1.8)
+    bax.zorder = 40
+    b.on_clicked(calb)
+    return b
+
+
 def panel_oscuro(ax, titulo=None, lim=None):
     ax.set_facecolor("#141f38")
-    for NombreSpine in ax.spines.values():
-        NombreSpine.set_color("#2b3d63")
+    for sp in ax.spines.values():
+        sp.set_color("#2b3d63")
     ax.tick_params(colors=GRIS, labelsize=9)
     if titulo:
         ax.set_title(titulo, color=CREMA, fontsize=11, pad=10,
@@ -205,14 +234,17 @@ def panel_oscuro(ax, titulo=None, lim=None):
     if lim is not None:
         ax.set_xlim(lim[0]); ax.set_ylim(lim[1])
 
+
 class Ventana:
     """
     Pequeño envoltorio: sabe si el usuario cerró la ventana y ofrece un
     'refrescar' uno-a-uno para las animaciones con plt.pause.
     """
-    def __init__(self, fig):
+    def __init__(self, fig, auto_ms=None):
         self.fig = fig
-        self.cerrada = False
+        self.cerrada = not GUI_OK
+        self._auto = 0
+        self._auto_ms = auto_ms
         fig.canvas.mpl_connect("close_event", lambda e: setattr(self, "cerrada", True))
         plt.show(block=False)
 
@@ -227,11 +259,20 @@ class Ventana:
             self.cerrada = True
             return False
 
-def cerrar(fen):
+
+def cerrar(v):
     try:
-        plt.close(fen.fig)
+        plt.close(v.fig)
     except Exception:
         pass
+
+
+def tecla_r(fig, banderas, llave="reiniciar"):
+    """Conecta la tecla R (o la señal banderas[llave]) a un reinicio."""
+    def al_tear(e):
+        if e.key == "r":
+            banderas[llave] = True
+    fig.canvas.mpl_connect("key_press_event", al_tear)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -261,6 +302,7 @@ def celdas_mapa(ax, som):
         for j in range(c):
             r = Rectangle((j, i), .92, .92, fc=np.clip(som.W[i, j], 0, 1),
                           ec="none")
+            r._celdas = True
             rets.append(r)
             ax.add_patch(r)
     ax.set_xlim(-.1, c + .05); ax.set_ylim(-.1, f + .05)
@@ -269,9 +311,19 @@ def celdas_mapa(ax, som):
     return rets
 
 
+def limpiar_celdas(ax):
+    """Quita las celdas de una ronda anterior (para botón ⟲ repetir)."""
+    if ax is None:
+        return
+    for p in list(ax.patches):
+        if getattr(p, "_celdas", False):
+            p.remove()
+
+
 def fase1():
     aviso("FASE 1 · ¿Qué es un Mapa Auto-Organizado?")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · ¿Qué es un Mapa Auto-Organizado?")
     titulo_slide(ax0, "¿Qué es un Mapa Auto-Organizado?",
                  "Red neuronal no supervisada que aprende SIN etiquetas: "
                  "lo parecido termina cerca; lo distinto, lejos.")
@@ -316,68 +368,98 @@ def fase1():
                               fc=DORADO, ec="none")
     axtxt.add_patch(progreso)
 
-    # ----Panel 1 los datos "crudos" en miniatura antes del mapa ----------------
+    # los datos "crudos" en miniatura antes del mapa
     axmini = fig.add_axes([.565, .075, .295, .170])   # miniatura bajo el panel
     axmini.set_facecolor("#0e172c")
     axmini.set_title("así LLEGAN los datos (sin estructura)", color=GRIS,
                      fontsize=9, pad=5)
-    datos = datos_colores()
-    rngd = np.random.default_rng(3)
-    desorden = rngd.permutation(len(datos))[:260]
-    axmini.scatter(
-        rngd.random(260), rngd.random(260),
-        c=datos[desorden], s=34, lw=0, alpha=.9)
-    axmini.set_xticks([]); axmini.set_yticks([])
-    axmini.invert_yaxis()
 
-    # ---- SOM -------------------------------------------------------------------
-    som = SOM(12, 12, 3, semilla=5)
-    Xn = som.normalizar(datos)
-    cuer = celdas_mapa(axmap, som)
+    banderas = {"reiniciar": False}
+    semilla_base = 9
 
     tar = Ventana(fig)
-    epocas = 34
-    total = epocas * len(Xn)
-    r0, t0 = 7.0, .55
-    paso = 0
+    boton_h(fig, [.865, .028, .115, .055], "⟲ repetir  (tecla R)",
+            DORADO, lambda e: banderas.update(reiniciar=True))
+    tecla_r(fig, banderas)
 
-    for ep in range(epocas):
-        for xi in np.random.default_rng(11 + ep).permutation(len(Xn)):
-            lit = 1 - paso / total
-            sigma = max(.75, r0 * lit)
-            eta = max(.03, t0 * lit ** 1.6)
-            som.paso(Xn[xi], eta, sigma)
-            paso += 1
-            if paso % REFRESCO_CADA == 0 or paso == total:
-                for idx, r in enumerate(cuer):
-                    i, j = divmod(idx, som.columnas)
-                    r.set_facecolor(np.clip(som.W[i, j], 0, 1))
-                progreso.set_width(.945 * paso / total)
-                lit01 = 1 - paso / total
-                axmap.set_xlabel(
-                    f"época {ep+1}/{epocas}   "
-                    f"PASO 4 ▸  η (tasa) = {max(.03, t0*lit01**1.6):.3f}  ·  "
-                    f"σ (radio) = {max(.75, r0*lit01):.2f}  (cada vez más pequeños)",
-                    color=CREMA, fontsize=10)
-                if not tar.refrescar():
-                    break
+    contador = 0
+    while True:
+        contador += 1
+        datos = datos_colores(semilla=semilla_base + contador)
+        Xn = datos / 1.0
+        som = SOM(12, 12, 3, semilla=contador * 10 + 5)
+        limpiar_celdas(axmap)
+        cua = celdas_mapa(axmap, som)
+        axmap.set_title("DATOS DE ENTRADA (3D)  →  CUADRÍCULA 12×12")
+        progreso.set_width(.0006)
+
+        # limpiar los puntos del intento anterior
+        arts = [a for a in list(axmap.collections) if getattr(a, "_demo1", False)]
+        for a in arts:
+            a.remove()
+
+        epocas = 34
+        total = epocas * len(Xn)
+        r0, t0 = 7.0, .55
+        paso = 0
+        rg = np.random.default_rng(11 + contador)
+        interrumpido = False
+        for ep in range(epocas):
+            for xi in rg.permutation(len(Xn)):
+                lit = 1 - paso / total
+                sigma = max(.75, r0 * lit)
+                eta = max(.03, t0 * lit ** 1.6)
+                som.paso(Xn[xi], eta, sigma)
+                paso += 1
+                if paso % REFRESCO_CADA == 0 or paso == total:
+                    for idx, r in enumerate(cua):
+                        i, j = divmod(idx, som.columnas)
+                        r.set_facecolor(np.clip(som.W[i, j], 0, 1))
+                    progreso.set_width(.945 * paso / total)
+                    lit01 = 1 - paso / total
+                    axmap.set_xlabel(
+                        f"época {ep+1}/{epocas}   "
+                        f"PASO 4 ▸  η (tasa) = {max(.03, t0*lit01**1.6):.3f}  ·  "
+                        f"σ (radio) = {max(.75, r0*lit01):.2f}  "
+                        f"(cada vez más pequeños)     ·  ▸ R o ⟲ para repetir",
+                        color=CREMA, fontsize=10)
+                    if not tar.refrescar():
+                        interrumpido = True
+                        break
+                    if banderas["reiniciar"]:
+                        interrumpido = True
+                        break
+            if interrumpido:
+                break
+            if banderas["reiniciar"]:
+                interrumpido = True
+                break
+
+        reinicia = banderas["reiniciar"]
+        banderas["reiniciar"] = False
         if tar.cerrada:
             break
+        if not interrumpido:
+            # una vez ordenado, muestra los datos en su celda
+            rngb = np.random.default_rng(4 + contador)
+            for x in Xn[:300]:
+                bmu, _ = som.bmu_de(x)
+                h = axmap.scatter(bmu[1] + .46 + rngb.normal(0, .13),
+                                  bmu[0] + .46 + rngb.normal(0, .13),
+                                  c=[np.clip(x, 0, 1)], s=12, lw=0,
+                                  alpha=.55, zorder=4)
+                h._demo1 = True
+            axmap.set_title("DESPUÉS: cada punto encontró su lugar")
+            progreso.set_width(.945)
+            while not tar.cerrada and not banderas["reiniciar"]:
+                tar.refrescar(0.02)
+            reinicia = banderas["reiniciar"]
+            banderas["reiniciar"] = False
+            if tar.cerrada:
+                break
+        # si fue interrumpido o pidió repetir → nueva ronda al instante
 
-    # una vez ordenado, muestra los datos en su celda
-    if not tar.cerrada:
-        rngb = np.random.default_rng(4)
-        for x in Xn[:300]:
-            bmu, _ = som.bmu_de(x)
-            axmap.scatter(bmu[1] + .46 + rngb.normal(0, .13),
-                          bmu[0] + .46 + rngb.normal(0, .13),
-                          c=[np.clip(x, 0, 1)], s=12, lw=0, alpha=.55, zorder=4)
-        axmap.set_title("DESPUÉS: cada punto encontró su lugar")
-        progreso.set_width(.945)
-        while not tar.cerrada:
-            tar.refrescar(0.02)
-        cerrar(tar)
-
+    cerrar(tar)
     print("    Fin de la fase 1.")
 
 
@@ -387,9 +469,10 @@ def fase1():
 def fase2():
     aviso("FASE 2 · De un dato al mapa: cuatro movimientos")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · Cuatro movimientos")
     gs = GridSpec(2, 2, figure=fig, width_ratios=[1.15, 1],
                   height_ratios=[3.6, 1.15], left=.045, right=.95,
-                  top=.80, bottom=.075, wspace=.16, hspace=.32)
+                  top=.80, bottom=.11, wspace=.16, hspace=.32)
     axmap = fig.add_subplot(gs[0, 0])
     axrt  = fig.add_subplot(gs[:, 1])
     axsab = fig.add_subplot(gs[1, 0])
@@ -400,16 +483,6 @@ def fase2():
     axmap.axis("off"); axrt.axis("off")
     axmap.invert_yaxis()
 
-    som = SOM(7, 7, 3, semilla=11)
-    datos = datos_colores(n=260, semilla=21)
-    Xn = som.normalizar(datos)
-    # pre-entrenamiento silencioso para que «a mitad de convergencia» la
-    # retracción se note con cada dato nuevo
-    som.entrenar(Xn, epocas=120, t0=.5, r0=4.0, rng=np.random.default_rng(2))
-
-    cua = celdas_mapa(axmap, som)
-
-    # tarjetas las 4 etapas
     axrt.set_xlim(0, 1); axrt.set_ylim(0, 1)
     tarjetas_spec = [
         ("1 · ENTRADA", "El dato se NORMALIZA: poner a todos los rasgos\n"
@@ -431,15 +504,6 @@ def fase2():
         tar_rects.append(axrt.patches[-1])
         y -= .215
 
-    # --- animación ----------------------------------------------------------
-    punto = Circle((0, 0), .12, fc="white", ec=DORADO, lw=3, alpha=0,
-                   zorder=6)                                    # dato entrante
-    vecindario = Circle((0, 0), 0.0, fc="none", ec=LILA, lw=3,
-                        ls="--", alpha=0, zorder=5)             # radio σ
-    estrella = axmap.plot([], [], marker="*", ms=26, color=DORADO,
-                          mec="#fff", mew=1.2, ls="", alpha=0, zorder=7)[0]
-    axmap.add_patch(punto); axmap.add_patch(vecindario)
-
     # barras de η y σ en el panel inferior (PASO 4)
     axsab.set_xlim(0, 1); axsab.set_ylim(0, 1)
     axsab.axis("off")
@@ -458,94 +522,141 @@ def fase2():
                               boxstyle="round,pad=0,rounding_size=0.012",
                               fc=LILA, ec="none")
     axsab.add_patch(eta_bar2); axsab.add_patch(sig_bar2)
+    eta_txt = axsab.text(.955, .635, "", color=CORAL, fontsize=9,
+                         ha="right", fontweight="bold")
+    sig_txt = axsab.text(.955, .262, "", color=LILA, fontsize=9,
+                         ha="right", fontweight="bold")
     axsab.text(.05, .82, "η tasa de aprendizaje", color=CORAL, fontsize=10,
                fontweight="bold")
     axsab.text(.05, .44, "σ radio de vecindad", color=LILA, fontsize=10,
                fontweight="bold")
 
+    punto = Circle((0, 0), .12, fc="white", ec=DORADO, lw=3, alpha=0, zorder=6)
+    vecindario = Circle((0, 0), 0.0, fc="none", ec=LILA, lw=3, ls="--",
+                        alpha=0, zorder=5)
+    estrella = axmap.plot([], [], marker="*", ms=26, color=DORADO,
+                          mec="#fff", mew=1.2, ls="", alpha=0, zorder=7)[0]
+    axmap.add_patch(punto); axmap.add_patch(vecindario)
+
+    banderas = {"reiniciar": False}
     tar = Ventana(fig)
-    # script: cada dato pasa por los 4 movimientos, uno a uno
-    N_DATOS = 26
-    indices = np.random.default_rng(8).choice(len(Xn), N_DATOS, replace=False)
-    t_s, t_e = 1.6, 0.8          # σ y η iniciales en la fase visible
+    boton_h(fig, [.865, .028, .115, .055], "⟲ repetir  (tecla R)",
+            DORADO, lambda e: banderas.update(reiniciar=True))
+    tecla_r(fig, banderas)
 
-    acabado = False
-    for kk, idx in enumerate(indices):
-        if tar.cerrada or acabado:
+    contador = 0
+    while True:
+        contador += 1
+        # pre-entrenamiento silencioso: el mapa «a medio converger»
+        som = SOM(7, 7, 3, semilla=11 + contador)
+        datos = datos_colores(n=260, semilla=21 + contador)
+        Xn = som.normalizar(datos)
+        som.entrenar(Xn, epocas=120, t0=.5, r0=4.0,
+                     rng=np.random.default_rng(2 + contador))
+
+        axmap.set_title("cuando llega UN dato… ¿qué hace la red?")
+        limpiar_celdas(axmap)
+        cua = celdas_mapa(axmap, som)
+        punto.set_alpha(0); estrella.set_alpha(0); vecindario.set_alpha(0)
+        eta_bar2.set_width(.001); sig_bar2.set_width(.001)
+        eta_txt.set_text(""); sig_txt.set_text("")
+        for rr in tar_rects:
+            rr.set_linewidth(2.2)
+
+        N_DATOS = 26
+        indices = np.random.default_rng(8 + contador).choice(
+            len(Xn), N_DATOS, replace=False)
+        t_s, t_e = 1.6, 0.8
+
+        acabado = False
+        for kk, idx in enumerate(indices):
+            if tar.cerrada or acabado:
+                break
+            x = Xn[idx]
+            fracc = (kk + 1) / N_DATOS
+            eta  = t_e * (1 - 0.88 * fracc)
+            sigma = t_s * (1 - 0.75 * fracc)
+
+            # ★ 1 · ENTRADA: el dato 'aterriza'
+            punto.set_facecolor(np.clip(x, 0, 1)); punto.set_alpha(1)
+            punto.center = (3.0, -0.68)
+            tar_rects[0].set_linewidth(5.0)
+            for _ in range(10):
+                if not tar.refrescar(): acabado = True; break
+                if banderas["reiniciar"]: acabado = True; break
+
+            if acabado: break
+            # ★ 2 · COMPETENCIA: se elige la BMU
+            bmu, d, G = som.paso(x, eta, sigma)
+            p_c = (bmu[1] + .46, bmu[0] + .46)
+            punto.center = p_c
+            estrella.set_data([bmu[1] + .46], [bmu[0] + .46]); estrella.set_alpha(1)
+            tar_rects[0].set_linewidth(2.2)
+            tar_rects[1].set_linewidth(5.0)
+            for _ in range(12):
+                if not tar.refrescar(): acabado = True; break
+                if banderas["reiniciar"]: acabado = True; break
+
+            if acabado: break
+            # ★ 3 · COOPERACIÓN: se mueve el vecindario
+            vecindario.center = p_c
+            vecindario.set_radius(sigma)
+            vecindario.set_alpha(.85)
+            tar_rects[1].set_linewidth(2.2)
+            tar_rects[2].set_linewidth(5.0)
+            for ii in range(8):
+                vecindario.set_alpha(.85 - ii * .06)
+                if not tar.refrescar(): acabado = True; break
+                if banderas["reiniciar"]: acabado = True; break
+
+            if acabado: break
+            # ★ 4 · CONVERGENCIA: barras de η y σ
+            tar_rects[2].set_linewidth(2.2)
+            tar_rects[3].set_linewidth(5.0)
+            eta_bar2.set_width(.885 * eta / t_e * fracc + .001)
+            sig_bar2.set_width(.885 * sigma / t_s * fracc + .001)
+            for idx2, r in enumerate(cua):
+                i, j = divmod(idx2, som.columnas)
+                r.set_facecolor(np.clip(som.W[i, j], 0, 1))
+            eta_txt.set_text(f"η={eta:.3f}")
+            sig_txt.set_text(f"σ={sigma:.2f}")
+            for _ in range(11):
+                if not tar.refrescar(): acabado = True; break
+                if banderas["reiniciar"]: acabado = True; break
+
+            punto.set_alpha(0); estrella.set_alpha(0)
+            vecindario.set_alpha(0)
+
+        banderas["reiniciar"] = False
+        if tar.cerrada:
             break
-        x = Xn[idx]
-        # momento global de la vida de la red
-        fracc = (kk + 1) / N_DATOS
-        eta  = t_e * (1 - 0.88 * fracc)
-        sigma = t_s * (1 - 0.75 * fracc)
+        if not acabado:
+            aviso("fin del entrenamiento: mapa estabilizado.  "
+                  "(⟲ / R para repetir)")
+            axmap.set_title("mapa estabilizado · ⟨ ⟲ repetir con nuevos datos")
+            while not tar.cerrada:
+                if banderas["reiniciar"]:
+                    break
+                tar.refrescar(0.02)
+            banderas["reiniciar"] = False
 
-        # ★ 1 · ENTRADA: el dato 'aterriza'
-        punto.set_facecolor(np.clip(x, 0, 1)); punto.set_alpha(1)
-        punto.center = (3.0, -0.68)
-        for rI in tar_rects: rI.set_linewidth(2.2)
-        tar_rects[0].set_linewidth(5.0)
-        for _ in range(10):
-            if not tar.refrescar(): acabado = True; break
-
-        if acabado: break
-        # ★ 2 · COMPETENCIA: se elige la BMU
-        bmu, d, G = som.paso(x, eta, sigma)
-        p_c = (bmu[1] + .46, bmu[0] + .46)
-        punto.center = p_c
-        estrella.set_data([bmu[1] + .46], [bmu[0] + .46]); estrella.set_alpha(1)
-        tar_rects[0].set_linewidth(2.2)
-        tar_rects[1].set_linewidth(5.0)
-        for _ in range(12):
-            if not tar.refrescar(): acabado = True; break
-
-        if acabado: break
-        # ★ 3 · COOPERACIÓN: se mueve el vecindario
-        vecindario.center = p_c
-        vecindario.set_radius(sigma)
-        vecindario.set_alpha(.85)
-        tar_rects[1].set_linewidth(2.2)
-        tar_rects[2].set_linewidth(5.0)
-        for ii in range(8):
-            vecindario.set_alpha(.85 - ii * .06)
-            if not tar.refrescar(): acabado = True; break
-
-        if acabado: break
-        # ★ 4 · CONVERGENCIA: barras de η y σ
-        tar_rects[2].set_linewidth(2.2)
-        tar_rects[3].set_linewidth(5.0)
-        eta_bar2.set_width(.885 * eta / t_e * fracc + .001)
-        sig_bar2.set_width(.885 * sigma / t_s * fracc + .001)
-        point = None
-        for idx2, r in enumerate(cua):
-            i, j = divmod(idx2, som.columnas)
-            r.set_facecolor(np.clip(som.W[i, j], 0, 1))
-        axsab.text(.955, .635, f"η={eta:.3f}", color=CORAL, fontsize=9,
-                   ha="right",
-                   fontweight="bold")
-        axsab.text(.955, .262, f"σ={sigma:.2f}", color=LILA, fontsize=9,
-                   ha="right", fontweight="bold")
-        for _ in range(11):
-            if not tar.refrescar(): acabado = True; break
-
-        punto.set_alpha(0); estrella.set_alpha(0)
-        vecindario.set_alpha(0)
-
-    aviso("fin del entrenamiento: mapa estabilizado.")
-    while not tar.cerrada:
-        tar.refrescar(0.02)
     cerrar(tar)
     print("    Fin de la fase 2.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  FASE 3 — MUCHAS DIMENSIONES, UN MAPA LEGIBLE
+#  FASE 3 — MUCHAS DIMENSIONES, UN MAPA LEGIBLE (interactiva: clics)
 # ══════════════════════════════════════════════════════════════════════════════
 def fase3():
-    aviso("FASE 3 · Muchas dimensiones, un mapa legible")
+    aviso("FASE 3 · Muchas dimensiones, un mapa legible — clic para vincular")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · Muchas dimensiones, un mapa legible")
+    titulo_slide(ax0, "Muchas dimensiones. Un mapa legible.",
+                 "El SOM proyecta cada vector sobre una cuadrícula 2D "
+                 "conservando, en lo posible, quién se parece a quién.")
     gs = GridSpec(2, 2, figure=fig, width_ratios=[1, 1],
                   height_ratios=[1.05, 1], left=.06, right=.94,
-                  top=.80, bottom=.10, wspace=.25, hspace=.42)
+                  top=.80, bottom=.155, wspace=.25, hspace=.42)
     axorig = fig.add_subplot(gs[0, 0])
     axmap  = fig.add_subplot(gs[0, 1])
     axcorr = fig.add_subplot(gs[1, :])
@@ -553,17 +664,11 @@ def fase3():
     for ax in (axorig, axmap, axcorr):
         ax.set_facecolor(AZUL)
 
-    titulo_slide(ax0, "Muchas dimensiones. Un mapa legible.",
-                 "El SOM proyecta cada vector sobre una cuadrícula 2D "
-                 "conservando, en lo posible, quién se parece a quién.")
-
     # datos con estructura en 3D: 4 grupos bien separados + tejido común
     rng = np.random.default_rng(77)
     centros = np.array([[ .8, .2, .2], [.2, .8, .2],
                         [.2, .2, .8], [.8, .8, .8]])
-    etiquetas = [0, 1, 2, 3]
-    X = []
-    y = []
+    X, y = [], []
     for kk, c in enumerate(centros):
         X.append(np.clip(rng.normal(c, .085, (70, 3)), 0, 1))
         y += [kk] * 70
@@ -576,7 +681,9 @@ def fase3():
     som.entrenar(Xn, epocas=70, t0=.5, r0=5.0, rng=np.random.default_rng(6))
 
     # (A) el espacio original, proyectado en 2D (debe verse como nube caótica)
-    axorig.scatter(X[:, 0], X[:, 1], c=X, s=22, lw=0, alpha=.75)
+    scx = axorig.scatter(X[:, 0], X[:, 1], c=X, s=42, lw=.4,
+                         edgecolors="#0e172c", alpha=.9)
+    cols0 = scx.get_facecolors().copy()
     panel_oscuro(axorig, "ESPACIO ORIGINAL: 3 dimensiones (nube caótica)")
     axorig.set_xlabel("dimensión 1", color=GRIS, fontsize=9.5)
     axorig.set_ylabel("dimensión 2", color=GRIS, fontsize=9.5)
@@ -593,8 +700,14 @@ def fase3():
             if conteo[i, j]:
                 visu[i, j] = np.clip(ac[i, j] / conteo[i, j], 0, 1)
     axmap.imshow(visu, extent=[-.5, 10.5, 10.5, -.5])
-    panel_oscuro(axmap, "EL MAPA 2D: cada color = grupo emergente")
-    axmap.set_xlabel("cuadrícula 11×11", color=GRIS, fontsize=9.5)
+    panel_oscuro(axmap, "EL MAPA 2D: clic en una casilla para ver SU grupo")
+    axmap.set_xlabel("cuadrícula 11×11 (haz clic)", color=GRIS, fontsize=9.5)
+    ring = Circle((0, 0), .42, fc="none", ec=DORADO, lw=3.5, alpha=0, zorder=6)
+    axmap.add_patch(ring)
+    flechas = [axorig.plot([], [], "o", ms=17, mfc="none", mec=DORADO,
+                           mew=2.6, ls="", zorder=7)[0] for _ in range(15)]
+
+    axmap.invert_yaxis()
 
     # (C) la PROMESA: cerca en el mapa ≈ cerca en los datos
     idx = rng.choice(len(Xn), 130, replace=False)
@@ -619,11 +732,83 @@ def fase3():
     axcorr.legend(facecolor=AZUL_2, edgecolor="#2b3d63", labelcolor=CREMA,
                   fontsize=10)
 
-    tarjeta(ax0, .18, .015, .64, .052, CORAL)
-    ax0.text(.50, .041, "multitud de rasgos (aquí 3, en la vida real 300)  →  "
+    tarjeta(ax0, .235, .015, .55, .052, CORAL)
+    ax0.text(.51, .041, "multitud de rasgos (aquí 3, en la vida real 300)  →  "
                         "2 dimensiones EXPLORABLES",
              color=CREMA, fontsize=12, ha="center", va="center",
              fontweight="bold")
+
+    # ── INTERACTIVIDAD: clic en el espacio ↔ clic en el mapa ────────────────
+    est = {"sel": []}
+
+    def limpiar():
+        for f in flechas:
+            f.set_data([], [])
+        ring.set_alpha(0)
+        scx.set_facecolors(cols0)
+        est["sel"] = []
+
+    def realzar(celdas=None, punteros=None):
+        if celdas is not None:
+            i, j = celdas
+            ring.center = (j + .46, i + .46)
+            ring.set_radius(.46); ring.set_alpha(1)
+            miembros = [k for k, bmm in enumerate(bmus)
+                        if tuple(bmm) == (i, j)]
+        else:
+            miembros = punteros
+
+        for f, k in zip(flechas, miembros[:len(flechas)]):
+            f.set_data([X[k, 0]], [X[k, 1]])
+        mascara = np.zeros((len(X), 4)); mascara[:, 3] = 1
+        mascara[:, 0] = .32; mascara[:, 1] = .38; mascara[:, 2] = .45
+        for k in miembros[:len(X)]:
+            mascara[k] = [*cols0[k][:3], 1.0]
+        for k in range(len(X)):
+            if miembros and k not in miembros:
+                mascara[k] = [*mascara[k][:3], .28]
+        scx.set_facecolors(np.clip(mascara, 0, 1))
+
+    def al_click(e):
+        if e.inaxes == axorig and len(X):
+            d2 = (X[:, 0] - e.xdata) ** 2 + (X[:, 1] - e.ydata) ** 2
+            k = int(np.argmin(d2))
+            if d2[k] > .02:
+                limpiar(); return
+            limpiar()
+            realzar(punteros=[k])
+            bb = bmus[k]
+            ring.center = (bb[1] + .46, bb[0] + .46)
+            ring.set_radius(.46); ring.set_alpha(1)
+            info.set_text(f"● punto #{k} del espacio original  →  "
+                          f"su BMU es la casilla ({bb[0]}, {bb[1]}) del mapa")
+            info.set_color(TURQUESA)
+        elif e.inaxes == axmap and e.xdata is not None:
+            j = int(np.floor(e.xdata)); i = int(np.floor(e.ydata))
+            if not (0 <= i < 11 and 0 <= j < 11):
+                limpiar(); return
+            limpiar()
+            realzar(celdas=(i, j))
+            n = int(conteo[i, j])
+            info.set_text(
+                f"■ casilla ({i},{j}) del mapa  →  guarda {n} puntos "
+                "del espacio original (señalados arriba a la izquierda)")
+            info.set_color(LILA)
+        else:
+            limpiar()
+            info.set_text("✳ haz CLIC en un punto (izquierda) o en una "
+                          "casilla del mapa (derecha)…")
+            info.set_color(GRIS)
+        try:
+            fig.canvas.draw_idle()
+        except Exception:
+            pass
+
+    info = fig.text(.025, .042, "✳ INTERACTIVO:\n"
+                    "clic en un punto\no en una casilla",
+                    color=GRIS, fontsize=9.5, ha="left", va="center",
+                    fontweight="bold")
+    fig.canvas.mpl_connect("button_press_event", al_click)
 
     tar = Ventana(fig)
     while not tar.cerrada:
@@ -634,11 +819,12 @@ def fase3():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  FASE 4 — CASO REAL 01 · MEDIOS: NOTICIAS QUE SE ORDENAN SOLAS
+#  FASE 4 — CASO REAL 01 · MEDIOS: NOTICIAS QUE SE ORDENAN SOLAS (hover)
 # ══════════════════════════════════════════════════════════════════════════════
 def fase4():
-    aviso("FASE 4 · Caso real 01 — Noticias que se ordenan solas")
+    aviso("FASE 4 · Caso real 01 — Noticias que se ordenan solas (pasa el ratón)")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · Caso real: medios/noticias")
     gs = GridSpec(1, 2, figure=fig, width_ratios=[1.5, 1],
                   left=.045, right=.957, top=.82, bottom=.08, wspace=.20)
     axmap = fig.add_subplot(gs[0])
@@ -694,6 +880,9 @@ def fase4():
     for b, t in zip(bmus, etiq):
         hit.setdefault(b, {}).setdefault(t, 0)
         hit[b][t] += 1
+    docs_por_celda = {}
+    for b, t, d in zip(bmus, etiq, docs):
+        docs_por_celda.setdefault(b, []).append((t, d))
     # pureza: ¿el grupo que EMERGIÓ en la celda coincide con la etiqueta?
     ok, tot = 0, 0
     for b, dist in hit.items():
@@ -702,12 +891,12 @@ def fase4():
         ok += dist.get(dom, 0)
     pureza = ok / tot
 
-    um = som.matriz_u()
     NOMBRES = {"deportes": "deportes", "tecnologia": "tecnolog.",
                "politica": "política", "economia": "economía",
                "ciencia": "ciencia", "espectaculos": "espectácl."}
+    um = som.matriz_u()
     axmap.imshow(um, cmap=UM_CMAP, extent=[-.5, 9.5, 9.5, -.5])
-    panel_oscuro(axmap, "MATRIZ-U del mapa noticioso (fronteras en claro)")
+    panel_oscuro(axmap, "MATRIZ-U del mapa noticioso (pasa el RATÓN / clic)")
     nombre_color = {k: PALETA_TOP[i] for i, k in enumerate(k_temas)}
     for b, dist in hit.items():
         if sum(dist.values()) >= 3:
@@ -717,6 +906,10 @@ def fase4():
                        ha="center", va="center",
                        bbox=dict(fc=nombre_color[dom], ec="none",
                                  boxstyle="round,pad=.20", alpha=.90, lw=0))
+    celda_ring = Circle((0, 0), .46, fc="none", ec=DORADO, lw=3.5,
+                        alpha=0, zorder=6)
+    axmap.add_patch(celda_ring)
+    axmap.invert_yaxis()
 
     titulo_slide(ax0, "CASO REAL 01 · MEDIOS",
                  "Un SOM agrupa miles de artículos por afinidad temática "
@@ -730,30 +923,89 @@ def fase4():
                f"   Cada uno se volvió un vector de {len(vocab)} rasgos\n"
                "   (frecuencia de cada palabra de vocabulario).",
                color=CREMA, fontsize=10.5, va="top")
-    axtxt.text(.03, .72,
+    axtxt.text(.03, .74,
                "   El SOM los recibió SIN etiquetas y los organizó\n"
                "   solos: las zonas del mapa coinciden con las secciones\n"
                "   editoriales que creías que era difícil descubrir.",
                color=GRIS, fontsize=10.5, va="top")
 
-    tarjeta(axtxt, .06, .50, .88, .10, VERDE)
-    axtxt.text(.50, .55, f"PUREZA de los grupos emergentes: {pureza:.0%}",
-               color=CREMA, fontsize=15, ha="center", va="center",
+    tarjeta(axtxt, .06, .52, .88, .096, VERDE)
+    axtxt.text(.50, .568, f"PUREZA de los grupos:  {pureza:.0%}  ✔",
+               color=CREMA, fontsize=13.5, ha="center", va="center",
                fontweight="bold")
-    axtxt.text(.06, .38, "El mapa ofrece NAVEGACIÓN intuitiva y revela\n"
-                         "tendencias emergentes antes de que sean obvias.",
+    axtxt.text(.06, .415, "El mapa ofrece NAVEGACIÓN intuitiva y revela\n"
+                          "tendencias emergentes antes de que sean obvias.",
                color=GRIS, fontsize=10.5)
-    ley = "leyenda de los temas (solo para TÍ — el SOM nunca las vio):"
-    axtxt.text(.06, .22, ley, color=GRIS, fontsize=8.8, style="italic")
-    xx, yy = .06, .17
-    for k, kk in enumerate(k_temas):
+
+    axtxt.text(.06, .29, "leyenda de los temas (solo para TI — el SOM "
+                         "nunca las vio):", color=GRIS, fontsize=8.8,
+               style="italic")
+    xx, yy = .06, .25
+    for kk in k_temas:
         c = nombre_color[kk]
-        axtxt.add_patch(Rectangle((xx, yy), .018, .032, fc=c, ec="none"))
-        axtxt.text(xx + .026, yy + .016, kk.replace("_", " "), color=CREMA,
-                   fontsize=9.5, va="center")
-        xx += .315
-        if k == 2:
-            xx = .06; yy = .115
+        axtxt.add_patch(Rectangle((xx, yy), .014, .028, fc=c, ec="none"))
+        axtxt.text(xx + .021, yy + .014, kk, color=CREMA,
+                   fontsize=7.6, va="center")
+        xx += .155
+
+    # ── INTERACTIVIDAD: hover sobre el mapa muestra los titulares ───────────
+    caja = FancyBboxPatch((.06, .05), .90, .17,
+                          boxstyle="round,pad=0.010,rounding_size=0.022",
+                          fc="#0e172c", ec="#2b3d63", lw=1.4, alpha=.95)
+    axtxt.add_patch(caja)
+    hud = axtxt.text(.095, .062, "✳ pasa el RATÓN sobre el mapa\n"
+                     "para leer los titulares de cada neurona…",
+                     color=GRIS, fontsize=9.2, va="bottom")
+    pin = {"celda": None}
+
+    def al_mover(e):
+        if e.inaxes != axmap or e.xdata is None:
+            if pin["celda"] is None:
+                celda_ring.set_alpha(0)
+            return
+        if pin["celda"] is not None:
+            i, j = pin["celda"]
+        else:
+            i, j = int(np.floor(e.ydata)), int(np.floor(e.xdata))
+        if not (0 <= i < 10 and 0 <= j < 10):
+            return
+        celda_ring.center = (j + .46, i + .46); celda_ring.set_alpha(1)
+        miembros = docs_por_celda.get((i, j), [])
+        if not miembros:
+            hud.set_text(f"casilla ({i},{j}) · sin titulares "
+                         "(zona de FRONTERA — así la vecindad del SOM)")
+            hud.set_color(GRIS)
+        else:
+            con = {}
+            for t, d in miembros:
+                con[t] = con.get(t, 0) + 1
+            dom = max(con.items(), key=lambda kv: kv[1])[0]
+            import textwrap as _tw
+            filas = []
+            for t, d in miembros[:3]:
+                tit = " ".join(d)
+                filas += ["   • " + s for s in _tw.wrap(tit, 38)]
+            hud.set_text(f"casilla ({i},{j}) · {len(miembros)} titulares · "
+                         f"categoría dominante: {dom}\n" + "\n".join(filas))
+            hud.set_color(nombre_color[dom])
+        try:
+            fig.canvas.draw_idle()
+        except Exception:
+            pass
+
+    def al_click(e):
+        if e.inaxes == axmap and e.xdata is not None:
+            i, j = int(np.floor(e.ydata)), int(np.floor(e.xdata))
+            if pin["celda"] == (i, j):
+                pin["celda"] = None
+            else:
+                pin["celda"] = (i, j)
+                al_mover(e)
+        else:
+            pin["celda"] = None
+
+    fig.canvas.mpl_connect("motion_notify_event", al_mover)
+    fig.canvas.mpl_connect("button_press_event", al_click)
 
     tar = Ventana(fig)
     while not tar.cerrada:
@@ -764,11 +1016,12 @@ def fase4():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  FASE 5 — CASO REAL 02 · SEGURIDAD: LO EXTRAÑO DESTACA ANTES DE TENER NOMBRE
+#  FASE 5 — CASO REAL 02 · SEGURIDAD: ANOMALÍAS (slider del umbral)
 # ══════════════════════════════════════════════════════════════════════════════
 def fase5():
-    aviso("FASE 5 · Caso real 02 — Anomalías: seguridad")
+    aviso("FASE 5 · Caso real 02 — Anomalías: seguridad (mueve el slider)")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · Caso real: seguridad/aromalías")
     gs = GridSpec(1, 2, figure=fig, width_ratios=[1.2, 1],
                   left=.05, right=.955, top=.82, bottom=.15, wspace=.24)
     axmap = fig.add_subplot(gs[0])
@@ -787,64 +1040,85 @@ def fase5():
                       [.55, .80, .30, .60, .75]])
     Xn = np.vstack([np.clip(rng.normal(c, .09, (150, 5)), 0, 1) for c in c_nor])
     Xani = np.zeros((30, 5))
-    if True:
-        # anomalías: picos de tasa, puertos raros, horas imposibles
-        Xani[:, 0] = np.clip(rng.uniform(0, 1, 30), 0, 1)
-        Xani[:, 1] = np.clip(rng.uniform(.92, 1, 30), 0, 1)
-        Xani[:, 2] = np.clip(rng.uniform(.95, 1, 30), 0, 1)
-        Xani[:, 3] = np.clip(rng.uniform(.85, 1, 30), 0, 1)
-        Xani[:, 4] = np.clip(rng.uniform(0, 1, 30), 0, 1)
+    # anomalías: picos de tasa, puertos raros, horas imposibles
+    Xani[:, 0] = np.clip(rng.uniform(0, 1, 30), 0, 1)
+    Xani[:, 1] = np.clip(rng.uniform(.92, 1, 30), 0, 1)
+    Xani[:, 2] = np.clip(rng.uniform(.95, 1, 30), 0, 1)
+    Xani[:, 3] = np.clip(rng.uniform(.85, 1, 30), 0, 1)
+    Xani[:, 4] = np.clip(rng.uniform(0, 1, 30), 0, 1)
 
     som = SOM(9, 9, 5, semilla=40)
     som.entrenar(Xn, epocas=55, t0=.5, r0=4.2, rng=np.random.default_rng(9))
 
     qe_n = np.array([som.bmu_de(x)[1] for x in Xn])
     qe_a = np.array([som.bmu_de(x)[1] for x in Xani])
-    umbral = qe_n.mean() + 2.6 * qe_n.std()
 
     um = som.matriz_u()
     axmap.imshow(um, cmap=UM_CMAP, extent=[-.5, 8.5, 8.5, -.5])
     panel_oscuro(axmap, "el territorio de lo «NORMAL»")
     rb = np.random.default_rng(15)
-    for x, qe in zip(Xn[:240], qe_n[:240]):
+    for x in Xn[:240]:
         b, _ = som.bmu_de(x)
         axmap.scatter(b[1] + rb.normal(0, .16), b[0] + rb.normal(0, .16),
                       s=13, c=GRIS, alpha=.35, lw=0)
-    n_marca = 0
-    for x, qe in zip(Xani, qe_a):
-        b, d = som.bmu_de(x)
-        cls = CORAL if d > umbral else GRIS
-        if d > umbral:
-            n_marca += 1
-        axmap.scatter(b[1], b[0], s=230, marker="X", c=cls,
-                      edgecolors="#fff", lw=1.1, zorder=6, alpha=.95)
+    bs_a = [np.array(som.bmu_de(x)[0]) for x in Xani]
+    marc_x = axmap.scatter([b[1] for b in bs_a], [b[0] for b in bs_a],
+                           s=230, marker="X", c=CORAL,
+                           edgecolors="#fff", lw=1.1, zorder=6, alpha=.95)
     axmap.set_xlabel("las X rojas son eventos que NO tienen casa en el mapa",
                      color=CREMA, fontsize=10)
+    axmap.invert_yaxis()
 
     # radiografía del error de cuantización
     axqe.scatter(np.arange(len(qe_n)), qe_n, s=11, c=TURQUESA, alpha=0.55,
                  lw=0, label="eventos normales")
-    axqe.scatter(np.arange(2000, 2000 + len(qe_a)), qe_a, s=85, marker="X",
-                 c=CORAL, edgecolors="#fff", lw=.8,
-                 label="eventos por CLASIFICAR")
-    axqe.axhline(umbral, color=DORADO, lw=2.2, ls="--",
-                 label="umbral de alarma (media + 2.6 σ)")
+    sc_an = axqe.scatter(np.arange(2000, 2000 + len(qe_a)), qe_a, s=85,
+                         marker="X", c=CORAL, edgecolors="#fff", lw=.8,
+                         label="eventos por CLASIFICAR")
+    thr0 = qe_n.mean() + 2.6 * qe_n.std()
+    linea, = axqe.plot([0, 2040], [thr0, thr0], color=DORADO, lw=2.2, ls="--",
+                       label="umbral de alarma (media + k·σ)")
     panel_oscuro(axqe, "señal temprana: distancia a la BMU "
                        "(error de cuantización)")
     axqe.set_xlabel("evento (los últimos son los «raros»)", color=GRIS)
     axqe.set_ylabel("distancia al mapa", color=GRIS, fontsize=10)
     axqe.legend(facecolor=AZUL_2, edgecolor="#2b3d63", labelcolor=CREMA,
                 fontsize=9, loc="center")
+    axqe.set_ylim(0, max(qe_n.max(), qe_a.max(), thr0) * 1.18)
 
-    axqe.text(.02, .98, f"{n_marca} de {len(qe_a)} eventos anómalos "
-                        f"quedaron por ENCIMA del umbral",
-              transform=axqe.transAxes, color=CREMA, fontsize=10.5,
-              ha="left", va="top", fontweight="bold")
+    n_marca = {"v": 0}
+    anuncio = axqe.text(
+        .02, .98, "", transform=axqe.transAxes, color=CREMA, fontsize=10.5,
+        ha="left", va="top", fontweight="bold")
+
+    # ── INTERACTIVIDAD: slider del umbral ───────────────────────────────────
+    axsl = axqe.inset_axes([.60, .045, .36, .05])
+    sl = Slider(axsl, "k·σ", 0.5, 4.0, valinit=2.6, valstep=.05,
+                color=CORAL, track_color="#0e172c")
+    for spv in axsl.spines.values():
+        spv.set_color("#2b3d63")
+    axsl.tick_params(colors=GRIS, labelsize=8)
+
+    def al_umbral(_):
+        k = sl.val
+        thr = qe_n.mean() + k * qe_n.std()
+        linea.set_ydata([thr, thr])
+        colores_ = [CORAL if q > thr else "#5b6b84" for q in qe_a]
+        sc_an.set_edgecolors(["#fff"] * len(qe_a))
+        sc_an.set_facecolors(colores_)
+        c_state = [CORAL if q > thr else "#5b6b84" for q in qe_a]
+        marc_x.set_facecolors(c_state)
+        n_marca["v"] = int(sum(q > thr for q in qe_a))
+        anuncio.set_text(f"k = {k:.2f}·σ   ▸   {n_marca['v']} de "
+                         f"{len(qe_a)} anomalías sobre el umbral")
+
+    sl.on_changed(al_umbral)
+    al_umbral(None)
 
     # chip conclusión
-    tarjeta(ax0, .16, .008, .68, .052, CORAL)
+    tarjeta(ax0, .10, .008, .80, .052, CORAL)
     ax0.text(.50, .034, "una señal temprana INCLUSO SIN ejemplos etiquetados "
-                        "de ataques",
+                        "de ataques — y el umbral se AJUSTA en vivo",
              color=CREMA, fontsize=12, ha="center", va="center",
              fontweight="bold")
 
@@ -852,7 +1126,7 @@ def fase5():
     while not tar.cerrada:
         tar.refrescar(0.03)
     cerrar(tar)
-    print(f"    eventos con alarma: {n_marca} de {len(qe_a)}")
+    print(f"    eventos con alarma (k=2.6σ): {n_marca['v']} de {len(qe_a)}")
     print("    Fin de la fase 5.")
 
 
@@ -863,6 +1137,7 @@ def fase6():
     aviso("FASE 6 · ¿Por qué elegir un SOM?   (sin etiquetas · visual · "
           "flexible · robusto)")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · ¿Por qué elegir un SOM?")
     titulo_slide(ax0, "¿Por qué elegir un SOM?",
                  "Cuatro ventajas, probadas una a una. Cada mini-experimento "
                  "se entrena AQUÍ, en segundos.")
@@ -880,7 +1155,6 @@ def fase6():
                         "los 3 grupos siguen separados.", CORAL),
     ]
     axes = [fig.add_subplot(gs[i, j]) for i in range(2) for j in range(2)]
-    # rótulos de los 4 cuadrantes sobre ax0 (fuera de los mini-gráficos)
     quads = [(.055, .704), (.554, .704), (.055, .352), (.554, .352)]
     for (qx, qy), (t, d, c) in zip(quads, tarjetas_spec):
         ax0.text(qx, qy, t, fontsize=14.5, color=c, fontweight="bold",
@@ -942,7 +1216,6 @@ def fase6():
         Dn = SOM.normalizar(D)
         Ss = SOM(7, 7, 2, semilla=9 + k)
         Ss.entrenar(Dn, epocas=55, t0=.35, r0=3.5, rng=np.random.default_rng(4))
-        mini = fig.add_subplot(3, 3, 3, zorder=0) if False else None
         ins = axes[2].inset_axes([.02 + k * .345, .02, .30, .74])
         ins.imshow(Ss.matriz_u(), cmap=UM_CMAP, extent=[-.5, 6.5, 6.5, -.5])
         ins.set_xticks([]); ins.set_yticks([])
@@ -978,6 +1251,7 @@ def fase6():
 def fase7():
     aviso("FASE 7 · El mapa también exige criterio")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · El mapa también exige criterio")
     titulo_slide(ax0, "El mapa también exige criterio",
                  "Cuatro tensiones que conviene gestionar desde el diseño "
                  "experimental.")
@@ -1041,6 +1315,7 @@ def fase7():
 def fase8():
     aviso("FASE 8 · El SOM del futuro: flujos en tiempo real y adaptación")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · El mapa del futuro (mapa vivo)")
     gs = GridSpec(1, 2, figure=fig, width_ratios=[1.15, 1],
                   left=.045, right=.955, top=.80, bottom=.08, wspace=.20)
     axmap = fig.add_subplot(gs[0])
@@ -1053,7 +1328,6 @@ def fase8():
                  "IA híbrida · tiempo real · adaptación: el mapa como capa "
                  "viva para entender sistemas cambiantes.")
 
-    # ---- mapa vivo --------------------------------------------------------
     panel_oscuro(axmap, "MAPA VIVO · se está ADAPTANDO a un flujo que cambia")
     som = SOM(10, 10, 3, semilla=90)
     rng = np.random.default_rng(91)
@@ -1071,7 +1345,7 @@ def fase8():
                          mew=2.2, ls="", zorder=6)
 
     axtxt.set_xlim(0, 1); axtxt.set_ylim(0, 1)
-    axtxt.text(.5, .95, " ese es un mapa EN TIEMPO REAL ", color=DORADO,
+    axtxt.text(.5, .95, "ese es un mapa EN TIEMPO REAL", color=DORADO,
                fontsize=12.5, ha="center", fontweight="bold", va="top")
     axtxt.text(.03, .87,
                "   · llega un FLUJO de eventos, uno a uno.\n"
@@ -1079,11 +1353,26 @@ def fase8():
                "   · a mitad del flujo, la realidad CAMBIA\n"
                "      (los temas se desplazan).",
                color=CREMA, fontsize=10.5, va="top")
-    status = axtxt.text(.03, .58, "", color=TURQUESA, fontsize=11,
-                        va="top", fontweight="bold")
+
+    # ── INTERACTIVIDAD: pausa en vivo ───────────────────────────────────────
+    est = {"pausa": False}
+
+    def alternar(_):
+        est["pausa"] = not est["pausa"]
+        bot_lbl.label.set_text("▶ seguir" if est["pausa"] else "⏸ pausa")
+
+    bot_lbl = boton_h(fig, [.865, .028, .115, .055], "⏸ pausa",
+                      TURQUESA, alternar)
+
+    tarjeta(axtxt, .04, .68, .90, .075, TURQUESA)
+    axtxt.text(.50, .718, "⏸ usa el botón PAUSA para congelar el flujo",
+               color=CREMA, fontsize=10.5, ha="center", va="center",
+               fontweight="bold")
 
     tar = Ventana(fig)
     for t in range(N):
+        while est["pausa"] and not tar.cerrada:
+            tar.refrescar(0.02)
         if tar.cerrada:
             break
         if t > N * 0.42:            # ¡drift! los centros empiezan a moverse
@@ -1137,6 +1426,7 @@ def fase8():
 def fase9():
     aviso("FASE 9 · Cierre")
     fig, ax0 = figura_presentation()
+    titulo_ventana(fig, "SOM · Cierre — ¿Preguntas?")
     ax0.set_xlim(0, 1); ax0.set_ylim(0, 1); ax0.axis("off")
 
     ax0.text(.5, .93, "ORDENA datos complejos", color=TURQUESA, fontsize=23,
@@ -1146,7 +1436,6 @@ def fase9():
     ax0.text(.5, .84, "INVITA a experimentar", color=LILA, fontsize=23,
              ha="center", fontweight="bold")
 
-    # triángulo central
     centro = (.5, .555)
     pts = [(.5, .745), (.30, .415), (.70, .415)]
     for (a, b) in ((0, 1), (1, 2), (2, 0)):
@@ -1179,29 +1468,110 @@ def fase9():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  MENÚ INTERACTIVO + ORQUESTACIÓN
+# ══════════════════════════════════════════════════════════════════════════════
+def men():
+    """Menú principal: el usuario escoge capítulo o reproduce TODO."""
+    fig, ax0 = figura_presentation(12.8, 7.2)
+    titulo_ventana(fig, "SOM · Menú principal")
+    titulo_slide(fig.axes[0], "M A P A S  A U T O - O R G A N I Z A D O S",
+                 "Mapas Auto-Organizados de Kohonen — demostración "
+                 "interactiva · GRUPO 10")
+    ax0.text(.5, .845, "elige un capítulo… o mira la demo completa",
+             color=GRIS, fontsize=11.5, ha="center")
+
+    est = {"accion": None}
+
+    items = [
+        ("1 · ¿Qué es un SOM?", fase1, TURQUESA),
+        ("2 · Cuatro movimientos", fase2, CORAL),
+        ("3 · Dimensión & semejanza", fase3, LILA),
+        ("4 · Medios: noticias", fase4, VERDE),
+        ("5 · Seguridad: anomalías", fase5, ROJO),
+        ("6 · ¿Por qué un SOM?", fase6, DORADO),
+        ("7 · Exige criterio", fase7, "#5bc0de"),
+        ("8 · SOM del futuro", fase8, "#ff9f68"),
+        ("9 · Cierre", fase9, "#8f7de8"),
+    ]
+    for k, (lbl, fn, c) in enumerate(items):
+        fila, col = divmod(k, 3)
+        bx = [.075 + col * .315, .635 - fila * .185, .28, .115]
+        bax = fig.add_axes(bx)
+        bax.set_facecolor(AZUL_2)
+        bb = Button(bax, lbl, color=AZUL_2, hovercolor="#31497c")
+        bb.label.set_color(CREMA); bb.label.set_fontsize(11)
+        for sp in bax.spines.values():
+            sp.set_color(c); sp.set_linewidth(2.2)
+        bax.zorder = 40
+        bb.on_clicked(lambda e, f=fn: est.__setitem__("accion", f))
+        # subtítulo
+        sub = {0: "el mapa se ordena solo",
+               1: "cada paso, animado",
+               2: "clic y explore el vínculo",
+               3: "pasa el RATÓN",
+               4: "ajusta el umbral",
+               5: "4 ventajas a prueba",
+               6: "5×5 vs 10×10 vs 22×22",
+               7: "mapa vivo ⏸",
+               8: "ORDENA · REVELA · INVITA"}[k]
+        ax0.text(bx[0] + bx[2] / 2, bx[1] - .028, sub, color=GRIS,
+                 fontsize=9, ha="center")
+
+    # running TODO
+    bax = fig.add_axes([.28, .105, .44, .115])
+    bax.set_facecolor("#26324f")
+    bb = Button(bax, "▶  R E P R O D U C I R   L A   D E M O   C O M P L E T A",
+                color="#26324f", hovercolor="#31497c")
+    bb.label.set_color(CREMA); bb.label.set_fontsize(11.5)
+    for sp in bax.spines.values():
+        sp.set_color(DORADO); sp.set_linewidth(2.4)
+    bax.zorder = 40
+    bb.on_clicked(lambda e: est.__setitem__("accion", "TODO"))
+    ax0.text(.5, .082, "cierra esta ventana para salir", color=GRIS,
+             fontsize=9.5, ha="center")
+
+    tar = Ventana(fig)
+    while not tar.cerrada:
+        accion = est["accion"]
+        est["accion"] = None
+        if accion is None:
+            tar.refrescar(0.02)
+            continue
+        try:
+            if accion == "TODO":
+                for fn in (fase1, fase2, fase3, fase4, fase5, fase6,
+                           fase7, fase8, fase9):
+                    fn()
+            else:
+                accion()
+        except Exception as exc:
+            print(f"    \033[31m(capítulo interrumpido: {exc})\033[0m")
+    cerrar(tar)
+    print("\n  ¡Hasta la próxima! — ojalá los SOM sigan ordenando solas.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  M A I N
 # ══════════════════════════════════════════════════════════════════════════════
 def principal():
     print("\n\033[1;36m" + "=" * 74)
-    print("  MAPAS AUTO-ORGANIZADOS DE KOHONEN (SOM) — DEMOSTRACIÓN EN PYTHON")
+    print("  MAPAS AUTO-ORGANIZADOS DE KOHONEN (SOM) — DEMO INTERACTIVA")
     print("=" * 74 + "\033[0m")
-    print("  9 fases visuales. Cada una abre una ventana: watch, aprende,"
-          " ciérrala,")
-    print("  pulsa ENTER y continúa con la siguiente.\n")
+    print(f"  backend gráfico: {BACKEND}")
+    print("  ▸ Se abrirá el MENÚ: elige capítulo, lanza la demo completa,")
+    print("    o cierra la ventana para salir.")
+    if not GUI_OK:
+        print("  \033[33m⚠ No hay ventana gráfica disponible — la demo solo")
+        print("    imprime métricas en terminal (modo «sin ventana»).")
+    print()
 
-    try:                                        # solo imprime 9 si está 0..9
-        pasos = [fase1, fase2, fase3, fase4, fase5, fase6, fase7, fase8,
-                 fase9]
-        for k, fn in enumerate(pasos, 1):
-            try:
-                fn()
-            except Exception as exc:
-                print(f"    \033[31m(fase {k} interrumpida: {exc})\033[0m")
+    try:
+        men()
     except KeyboardInterrupt:
         print("\n    ¡Demo detenida por el usuario! Hasta pronto 👋")
 
     plt.close("all")
-    print("\n\033[1;36m  ═══ DEMO TERMINADA — ¡cada nodo de la red ya dorme! "
+    print("\n\033[1;36m  ═══ DEMO TERMINADA — ¡ordenar es Solo el comienzo! "
           "═══\033[0m\n")
 
 
