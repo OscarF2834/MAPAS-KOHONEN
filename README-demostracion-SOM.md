@@ -1,11 +1,12 @@
-# 🧠 Demostración interactiva · Mapas Auto-Organizados de Kohonen (SOM)
+# 🔢 Ejercicio Numérico · Mapas Auto-Organizados de Kohonen (SOM)
 
 **GRUPO 10 · "Mapas Auto-Organizados de Kohonen (SOM): Redes que Ordenan Solas"**
 
-Demostración en Python que acompaña las diapositivas: la red SOM está escrita
-**desde cero** (solo `numpy` y `matplotlib`) — BMU, vecindario gaussiano,
-decaimiento de η y σ, matriz-U — para que cada paso del algoritmo sea visible
-en pantalla y **totalmente interactivo**.
+**ESTA es la demo principal ahora** (`ejercicio_numerico_som.py`): resuelve un
+**ejercicio numérico completo** del algoritmo de Kohonen donde **cada fórmula
+se aplica con números visibles**, paso a paso y de forma interactiva.
+La demo anterior (visual/noticiera) sigue disponible en
+`demostracion_som.py`.
 
 ---
 
@@ -13,90 +14,92 @@ en pantalla y **totalmente interactivo**.
 
 ```bash
 cd ~/Documentos/DEMOSTRACION\ -\ KOHOSEN
-python3 demostracion_som.py
+python3 ejercicio_numerico_som.py
 ```
 
-Requisitos (ya instalados en esta máquina):
+Requisitos (ya instalados): `numpy` y `matplotlib`.
 
-```bash
-pip install numpy matplotlib --user --break-system-packages
-```
+Al abrir aparece el **menú** con 3 secciones:
 
-> La demo elige automáticamente el primer backend gráfico disponible
-> (GTK3Agg → TkAgg → QtAgg → MacOSX). Si no encuentra ninguno, corre en modo
-> "sin ventana" y solo imprime las métricas en la terminal.
-
----
-
-## 🖱 Cómo se usa (¡es interactiva!)
-
-Al arrancar aparece el **MENÚ PRINCIPAL**: una ventana con 9 botones
-(uno por capítulo de la presentación) y un botón grande
-**«▶ REPRODUCIR LA DEMO COMPLETA»** que lanza todos los capítulos en orden.
-
-- Haz **clic** en un capítulo para ver solo ese.
-- Cada capítulo abre **su propia ventana**: para avanzar, **cierra la
-  ventana** (✕) — el menú sigue abierto por si quieres ver otro capítulo.
-- **Cierra la ventana del menú** para terminar.
-
-### Controles comunes en casi todas las ventanas
-
-| Control | Qué hace |
+| Botón | Qué muestra |
 |---|---|
-| **⟲ repetir** (botón) o tecla **R** | vuelve a entrenar la red en vivo, con datos nuevos |
-| barra de herramientas abajo | **zoom 🔍 / pan ✋** en cualquier gráfico |
-| cerrar la ventana (✕) | termina ese capítulo y devuelve el control al menú |
+| **1 · EJERCICIO PASO A PASO** | el ejercicio completo, fórmula por fórmula, con botones |
+| **2 · CONVERGENCIA (24 épocas)** | el mismo ejercicio entrenando en automático |
+| **3 · CHULETA DE FÓRMULAS** | las 5 fórmulas del SOM en una lámina |
 
-### Interactividad de cada fase
+Cierra la ventana de cada sección para volver al menú; cierra el menú para salir.
 
-| Botón del menú | Diapositiva | Qué puedes interactuar |
+---
+
+## 📐 El ejercicio (todo calculado con números)
+
+**Planteamiento**: 4 datos en 2 dimensiones, mapa de **2×2 neuronas**,
+η₀ = 0.6, σ₀ = 1.5, T = 16 pasos (4 épocas × 4 datos):
+
+| dato | vector | grupo real (solo color) |
 |---|---|---|
-| **1 · ¿Qué es un SOM?** | Título / definición | El mapa 12×12 se entrena en vivo con colores RGB; botón ⟲ o tecla **R** re-entrena con otra semilla |
-| **2 · Cuatro movimientos** | Algoritmo (4 pasos) | Cada dato llega y se ve ENTRADA→BMU→vecindario→decaimiento; botón ⟲ / **R** repite con nuevos datos |
-| **3 · Dimensión & semejanza** | Reducción de dimensiones | **Haz CLIC** en un punto (izquierda) → resalta su BMU en el mapa. **Clic en una casilla** (derecha) → resalta todos los puntos que caen allí |
-| **4 · Medios: noticias** | Caso real 01 | **Pasa el RATÓN (o clic)** sobre cada neurona y lee los titulares que guardó esa casilla; clic "fija" la casilla |
-| **5 · Seguridad: anomalías** | Caso real 02 | **Mueve el slider k·σ** y el umbral de alarma, las X y el recuento se actualizan al instante |
-| **6 · ¿Por qué un SOM?** | Ventajas | 4 mini-experimentos entrenados al momento (sin etiquetas, matriz-U, formas, ruido) |
-| **7 · Exige criterio** | Limitaciones | Comparación 5×5 vs 10×10 vs 22×22 y las 4 tensiones a gestionar |
-| **8 · SOM del futuro** | Futuro / tiempo real | Mapa vivo con **deriva de datos** y botón **⏸ pausa / ▶ seguir** para congelar el flujo |
-| **9 · Cierre** | Conclusión | ORDENA · REVELA · INVITA — y los nombres del grupo |
+| X₁ | (0.2, 0.8) | A |
+| X₂ | (0.3, 0.9) | A |
+| X₃ | (0.8, 0.2) | B |
+| X₄ | (0.9, 0.3) | B |
 
-### Atajos de teclado
+Pesos iniciales: W₁₁=(0.5, 0.5), W₁₂=(0.1, 0.2), W₂₁=(0.9, 0.8), W₂₂=(0.4, 0.1).
 
-- **R** — repetir/re-entrenar (fases 1 y 2).
-- ✕ o `Ctrl+W` — cerrar cada ventana.
+**Por cada dato se avanzan 5 pasos** (pulsando ▸ se ve la fórmula general
+Y los números sustituidos):
 
----
+1. **ENTRADA** — se presenta x = (0.200, 0.800) (normalizado a [0,1]²).
+2. **COMPETENCIA** — `d(x, W) = √((x₁−W₁)² + (x₂−W₂)²)` calculada para las
+   4 neuronas; la menor es la **BMU** (p. ej. d(x,W₁₁)=√(0.090+0.090)=**0.424**).
+3. **COOPERACIÓN** — `h = exp(−d(r, r_BMU)²/(2σ²))`: vecindario gaussiano
+   (p. ej. h₁₂ = exp(−1.000/4.500) = **0.801**).
+4. **ADAPTACIÓN** — regla de Kohonen `W(nuevo) = W + η·h·(x−W)`, neurona por
+   neurona (p. ej. ΔW₁₁ = 0.600·(−0.300,+0.300) → W₁₁ = (0.320, 0.680)).
+5. **CONVERGENCIA** — decaída `η(t)=η₀·(1−t/T)` y `σ(t)=σ₀·(1−t/T)`.
 
-## 🎥 Consejos para presentarla
-
-1. Abre el menú y usa **REPRODUCIR TODO** si la idea es flujo continuo; usa
-   los capítulos sueltos si quieres detener el ritmo y responder preguntas.
-2. En la fase 5, **pide al público un valor de k·σ** ("¿qué tan paranoicos
-   queremos estar?") y muévelo con ellos.
-3. En la fase 4, pasa el ratón por varias neuronas: es el momento "ajá" de
-   que el mapa guarda documentos de verdad.
-4. En la fase 3, haz clic en un punto de color llamativo: el público ve el
-   vínculo datos crudos ↔ casilla del mapa.
+Al final: **X₁,X₂ → W₁₁ (grupo A)** y **X₃,X₄ → W₂₂ (grupo B)**, pureza 100%,
+**sin haber usado las etiquetas**.
 
 ---
 
-## 🗂 Estructura del código
+## 🖱 Controles interactivos (ventana 1)
 
-- `class SOM` — la red escrita desde cero:
-  `paso()` (BMU + Gaussiana + regla de Kohonen), `entrenar()`, `bmu_de()`
-  y `matriz_u()`.
-- `fase1() … fase9()` — un capítulo por diapositiva, cada uno con su ventana.
-- `men()` — el menú principal interactivo.
-- Todo se dibuja con la estética de la presentación (azul, dorado, chips redondeados, texto en español).
+| Control | Acción |
+|---|---|
+| **▸ SIGUIENTE PASO** (o ESPACIO / tecla →) | avanza UN paso: muestra fórmula + números |
+| **⏩ AUTO / ⏸ PAUSA** | reproduce todos los pasos automáticamente |
+| **⟲ REINICIAR** (o tecla R) | empieza de cero |
+| **✕ TERMINAR** (o cerrar ventana) | vuelve al menú |
+
+Cada ventana tiene 3 vistas sincronizadas:
+
+- **MAPA 2×2** — tarjetas con el vector de pesos de cada neurona; la BMU
+  se marca con ★ dorada y su vecindario se sombrea con la intensidad de h;
+  los puntitos de color muestran qué datos guardó cada neurona.
+- **ESPACIO DE DATOS** — los datos (círculos de color) y los pesos
+  (cuadrados dorados) **migrando** con flechas en cada adaptación.
+- **PANEL DE CÁLCULOS** — la fórmula general + los números del paso actual.
+- **Barras η/σ** — la decaída de los parámetros en vivo.
+
+Además **cada paso queda impreso en la terminal** (útil para copiar los
+números al informe o memorias de cálculo).
+
+---
+
+## 🎥 Consejos para presentar el ejercicio
+
+1. Abre la **chuleta** primero (30 s) para fijar las 5 fórmulas.
+2. En el ejercicio, avanza con ▸ y **pregunta al público** antes de cada
+   paso: "¿quién ganará la competencia?" / "¿cuánto valdrá h?".
+3. Señala en el ESPACIO DE DATOS las **flechas doradas**: los pesos
+   físicamente se mueven hacia los datos — eso ES aprender.
+4. Cierra con la **CONVERGENCIA**: en 24 épocas se ve el mapa ordenarse solo.
+5. Remata: "100% de pureza **sin etiquetas** — eso es auto-organización".
 
 ## 🩺 Solución de problemas
 
 | Síntoma | Solución |
 |---|---|
-| *tkinter no disponible* | ya está resuelto: la demo usa GTK3Agg; no requiere tkinter |
-| No se abre ninguna ventana | instala un backend: `sudo apt install python3-gi gir1.2-gtk-3.0` o `pip install PyQt5 --user --break-system-packages` |
-| Se ve lento | sube `REFRESCO_CADA` (línea superior del script) a 20 |
-| Ventana congelada | es la ⏸ de la fase 8 — pulsa el botón ▶ seguir :-)
-
-¡Que lo disfruten! 🎉
+| No se abre ventana | la demo cae a modo terminal y resuelve todo con números; para GUI: `sudo apt install python3-gi gir1.2-gtk-3.0` |
+| Fuente rara en √ ₁ ² | usa la fuente DejaVu Sans (ya es la predeterminada) |
+| Va muy rápido en AUTO | sube el `% 16` del bucle a `% 30` en `fase_ejercicio` |
