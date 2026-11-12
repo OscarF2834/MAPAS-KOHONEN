@@ -102,4 +102,9 @@ números al informe o memorias de cálculo).
 |---|---|
 | No se abre ventana | la demo cae a modo terminal y resuelve todo con números; para GUI: `sudo apt install python3-gi gir1.2-gtk-3.0` |
 | Fuente rara en √ ₁ ² | usa la fuente DejaVu Sans (ya es la predeterminada) |
-| Va muy rápido en AUTO | sube el `% 16` del bucle a `% 30` en `fase_ejercicio` |
+| Va demasiado rápido en AUTO | sube el `% 12` del bucle a `% 20` en `fase_ejercicio` |
+
+> ⚡ **Rendimiento ya optimizado**: la demo solo re-dibuja cuando algo cambia
+> (nada de redibujos constantes), usa `flush_events` + `sleep` en vez del
+> lento `plt.pause`, el degradado es por bandas y el DPI de render es 85.
+> Reposo ≈ 0% de CPU y cada paso responde al instante.

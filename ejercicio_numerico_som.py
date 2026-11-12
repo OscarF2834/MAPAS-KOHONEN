@@ -19,11 +19,13 @@ CADA fórmula del algoritmo se aplica con números visibles:
   ▸ PASO 4 CONVERGENCIA→ η(t) = η₀·(1−t/T)  y  σ(t) = σ₀·(1−t/T).
 
 INTERACTIVO: botón ▸ (o ESPACIO / →) avanza UN paso mostrando la fórmula
-general y los números sustituidos; ⏩ AUTO lo reproduce solo; ⟲ reinicia.
+general y los números sustituidos; AUTO lo reproduce solo; ⟲ reinicia.
 Todo queda también impreso en la terminal (útil para el informe).
 
 Ejecutar:   python3 ejercicio_numerico_som.py
 """
+
+import time
 
 import numpy as np
 import matplotlib
@@ -99,15 +101,20 @@ def aviso(t):
 
 
 def figura(w=15.5, h=9.0):
-    fig = plt.figure(figsize=(w, h), facecolor=AZUL)
+    # dpi 85: misma composición (todo es fraccional) con ~30% menos
+    # píxeles por render → cada redibujo es más rápido.
+    fig = plt.figure(figsize=(w, h), facecolor=AZUL, dpi=85)
     ax0 = fig.add_axes([0, 0, 1, 1], zorder=-20)
     ax0.set_xlim(0, 1); ax0.set_ylim(0, 1); ax0.axis("off")
-    grad = np.zeros((256, 1, 3))
+    # degradado con bandas (≈1 ms) en vez de imshow (≈126 ms por render)
     arriba = np.array([0x0e/255, 0x16/255, 0x28/255])
     abajo  = np.array([0x1d/255, 0x2f/255, 0x52/255])
-    for k in range(3):
-        grad[:, 0, k] = np.linspace(arriba[k], abajo[k], 256)
-    ax0.imshow(grad, extent=(0, 1, 0, 1), aspect="auto", zorder=-21)
+    nb = 48
+    for k in range(nb):
+        t = k / (nb - 1)
+        ax0.add_patch(Rectangle((0, 1 - (k + 1) / nb), 1, 1.002 / nb,
+                                fc=arriba * (1 - t) + abajo * t,
+                                ec="none", zorder=-21))
     ax0.add_patch(FancyBboxPatch(
         (0.010, 0.010), 0.980, 0.980,
         boxstyle="round,pad=0.006,rounding_size=0.018",
@@ -148,12 +155,21 @@ class Ventana:
                                lambda e: setattr(self, "cerrada", True))
         plt.show(block=False)
 
-    def refrescar(self, pausa=.001):
+    def refrescar(self, pausa=.03):
+        """
+        Procesa eventos (clics, teclas, cierre) y re-dibuja SOLO si algo
+        cambió. Usamos flush_events + sleep en vez de plt.pause: el bucle
+        de eventos de GTK costaba ~85 ms por llamada aunque no hubiera
+        nada que pintar (era la causa del "trabón"); así el reposo cuesta
+        lo que pide el sleep y los clics responden al instante.
+        """
         if self.cerrada:
             return False
         try:
-            self.fig.canvas.draw_idle()
-            plt.pause(pausa)
+            if self.fig.stale:            # ¿cambió algo desde el último dibujo?
+                self.fig.canvas.draw_idle()
+            self.fig.canvas.flush_events()
+            time.sleep(pausa)
             return True
         except Exception:
             self.cerrada = True
@@ -366,21 +382,24 @@ class Ejercicio:
                             ha="center", fontweight="bold")
         self.auto = False
         self.salir = False
-        boton(fig, [.045, .022, .175, .058], "▸  SIGUIENTE PASO",
-              TURQUESA, lambda e: self.siguiente())
-        self.bauto = boton(fig, [.25, .022, .125, .058], "⏩  AUTO",
+        # los objetos Button DEBEN guardarse: el registro de callbacks de
+        # matplotlib usa referencias débiles → si nadie los referencia,
+        # el GC los recolecta y los botones dejan de responder.
+        self.btn_sig = boton(fig, [.045, .022, .175, .058], "▸  SIGUIENTE PASO",
+                             TURQUESA, lambda e: self.siguiente())
+        self.bauto = boton(fig, [.25, .022, .125, .058], "▸▸  AUTO",
                            LILA, self._alternar_auto)
-        boton(fig, [.405, .022, .15, .058], "⟲  REINICIAR",
-              DORADO, lambda e: self.reiniciar())
-        boton(fig, [.585, .022, .115, .058], "✕  TERMINAR",
-              CORAL, lambda e: setattr(self, "salir", True))
+        self.btn_reini = boton(fig, [.405, .022, .15, .058], "⟲  REINICIAR",
+                               DORADO, lambda e: self.reiniciar())
+        self.btn_fin = boton(fig, [.585, .022, .115, .058], "✕  TERMINAR",
+                             CORAL, lambda e: setattr(self, "salir", True))
         fig.canvas.mpl_connect("key_press_event", self._tecla)
         self.reiniciar()
 
     # ── controles ────────────────────────────────────────────────────────
     def _alternar_auto(self, _):
         self.auto = not self.auto
-        self.bauto.label.set_text("⏸  PAUSA" if self.auto else "⏩  AUTO")
+        self.bauto.label.set_text("▮▮  PAUSA" if self.auto else "▸▸  AUTO")
 
     def _tecla(self, e):
         if e.key in ("right", " "):
@@ -402,7 +421,7 @@ class Ejercicio:
         self.asign = {}
         self.fin = False
         self.auto = False
-        self.bauto.label.set_text("⏩  AUTO")
+        self.bauto.label.set_text("▸▸  AUTO")
         self.mapa.actualizar(self.W)
         self.esp.actualizar(self.W)
         self.bars.actualizar(self.eta, self.sig, 0, T_TOT)
@@ -412,7 +431,7 @@ class Ejercicio:
             "Pulsa  ▸ SIGUIENTE PASO  (o la tecla ESPACIO / →)",
             "para aplicar CADA fórmula del SOM con números.",
             "",
-            "⏩ AUTO reproduce todos los pasos solo.",
+            "AUTO (▸▸) reproduce todos los pasos solo.",
             "⟲ REINICIAR empieza de cero."], GRIS)
         self._hud()
 
@@ -657,9 +676,9 @@ def fase_ejercicio():
     while not tar.cerrada and not ej.salir:
         if ej.auto and not ej.fin:
             n += 1
-            if n % 16 == 0:
+            if n % 12 == 0:           # ≈ 0.25 s por paso en AUTO
                 ej.siguiente()
-        tar.refrescar(.03)
+        tar.refrescar(.02)
     cerrar(tar)
     print("    Fin del ejercicio guiado.")
 
@@ -719,7 +738,11 @@ def fase_convergencia():
                             f"η = {eta:.3f}  ·  σ = {sig:.3f}")
             estado.set_color(CORAL if ep >= 10 else CREMA)
             t += 1
-            if GUI_OK and not tar.refrescar(.004):
+            if GUI_OK and tar.cerrada:
+                parar = True
+                break
+            # re-dibujar solo cada 2 pasos (la mitad de renders, el doble ágil)
+            if GUI_OK and t % 2 == 0 and not tar.refrescar(.02):
                 parar = True
                 break
 
@@ -746,7 +769,7 @@ def fase_convergencia():
              fontweight="bold")
     print(f"    pureza tras 24 épocas = {pureza:.0%}")
     while not tar.cerrada:
-        tar.refrescar(.03)
+        tar.refrescar(.05)
     cerrar(tar)
     print("    Fin de la convergencia.")
 
@@ -803,7 +826,7 @@ def fase_chuleta():
 
     tar = Ventana(fig)
     while not tar.cerrada:
-        tar.refrescar(.03)
+        tar.refrescar(.05)
     cerrar(tar)
     print("    Fin de la chuleta.")
 
@@ -832,10 +855,12 @@ def men():
          "las 5 fórmulas en una lámina"),
     ]
     y = .62
-    for lbl, fn, c, sub in items:
+    botones_menu = []      # los Button deben quedar referenciados: el
+    for lbl, fn, c, sub in items:   # registro de mpl usa refs débiles
         bax = fig.add_axes([.22, y, .56, .115])
         bax.set_facecolor(AZUL_2)
         bb = Button(bax, lbl, color=AZUL_2, hovercolor="#31497c")
+        botones_menu.append(bb)
         bb.label.set_color(CREMA); bb.label.set_fontsize(13)
         for sp in bax.spines.values():
             sp.set_color(c); sp.set_linewidth(2.4)
@@ -853,7 +878,7 @@ def men():
         accion = est["accion"]
         est["accion"] = None
         if accion is None:
-            tar.refrescar(.02)
+            tar.refrescar(.04)
             continue
         try:
             accion()

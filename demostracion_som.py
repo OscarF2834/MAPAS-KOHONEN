@@ -378,8 +378,8 @@ def fase1():
     semilla_base = 9
 
     tar = Ventana(fig)
-    boton_h(fig, [.865, .028, .115, .055], "⟲ repetir  (tecla R)",
-            DORADO, lambda e: banderas.update(reiniciar=True))
+    btn_rep = boton_h(fig, [.865, .028, .115, .055], "⟲ repetir  (tecla R)",
+                      DORADO, lambda e: banderas.update(reiniciar=True))
     tecla_r(fig, banderas)
 
     contador = 0
@@ -540,8 +540,8 @@ def fase2():
 
     banderas = {"reiniciar": False}
     tar = Ventana(fig)
-    boton_h(fig, [.865, .028, .115, .055], "⟲ repetir  (tecla R)",
-            DORADO, lambda e: banderas.update(reiniciar=True))
+    btn_rep = boton_h(fig, [.865, .028, .115, .055], "⟲ repetir  (tecla R)",
+                      DORADO, lambda e: banderas.update(reiniciar=True))
     tecla_r(fig, banderas)
 
     contador = 0
@@ -1493,12 +1493,14 @@ def men():
         ("8 · SOM del futuro", fase8, "#ff9f68"),
         ("9 · Cierre", fase9, "#8f7de8"),
     ]
-    for k, (lbl, fn, c) in enumerate(items):
+    botones_menu = []      # los Button deben quedar referenciados: el
+    for k, (lbl, fn, c) in enumerate(items):   # registro de mpl usa refs débiles
         fila, col = divmod(k, 3)
         bx = [.075 + col * .315, .635 - fila * .185, .28, .115]
         bax = fig.add_axes(bx)
         bax.set_facecolor(AZUL_2)
         bb = Button(bax, lbl, color=AZUL_2, hovercolor="#31497c")
+        botones_menu.append(bb)
         bb.label.set_color(CREMA); bb.label.set_fontsize(11)
         for sp in bax.spines.values():
             sp.set_color(c); sp.set_linewidth(2.2)
